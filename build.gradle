@@ -33,7 +33,7 @@ repositories {
 
 dependencies {
     compile group: 'net.sf.robocode', name: 'robocode.api', version: '1.9.2.1'
-    runtime fileTree(include: ['*.jar'], dir: "${project.robocodeDir}/libs")
+    runtime fileTree(include: ['*.jar'], dir: "${robocodeDir}/libs")
     implementation "org.jetbrains.kotlin:kotlin-stdlib"
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
 }
@@ -53,3 +53,16 @@ task install {
         }
     }
 }
+
+tasks.register('start') {
+    group = 'robocode'
+
+    doLast {
+        exec {
+            commandLine 'sh', "${robocodeDir}/robocode.sh", '-battle', "${rootDir}/battles/nomovement.battle"
+        }
+    }
+}
+
+tasks.install.dependsOn build
+tasks.start.dependsOn install
