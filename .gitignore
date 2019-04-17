@@ -1,0 +1,8 @@
+.gradle
+.idea
+/build
+/robocode
+
+gradle.properties
+
+terasbot-robocode.iml
