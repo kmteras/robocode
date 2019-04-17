@@ -39,17 +39,19 @@ dependencies {
 }
 
 task install {
-    def packagePath = 'as/ter'
+    doLast {
+        def packagePath = 'as/ter'
 
-    def fromPath = "${rootDir}/build/classes/kotlin/main/${packagePath}"
-    def intoPath = "${robocodeDir}/robots/${packagePath}"
+        def fromPath = "${rootDir}/build/classes/kotlin/main/${packagePath}"
+        def intoPath = "${robocodeDir}/robots/${packagePath}"
 
-    copy {
-        from fromPath
-        into intoPath
+        copy {
+            from fromPath
+            into intoPath
 
-        eachFile { details ->
-            println "Copied ${details}"
+            eachFile { details ->
+                println "Copied ${details}"
+            }
         }
     }
 }
