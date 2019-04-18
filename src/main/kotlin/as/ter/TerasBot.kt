@@ -2,6 +2,7 @@ package `as`.ter
 
 import `as`.ter.components.BaseComponent
 import `as`.ter.components.MovementComponent
+import `as`.ter.components.RadarComponent
 import `as`.ter.events.EnemyFiredBulletEvent
 import robocode.*
 import java.awt.Color
@@ -15,6 +16,8 @@ class TerasBot : AdvancedRobot() {
         setGunColor(black)
         setBodyColor(blue)
         setScanColor(white)
+        isAdjustGunForRobotTurn = true
+        isAdjustRadarForGunTurn = true
     }
 
     private var botFound = false
@@ -26,17 +29,14 @@ class TerasBot : AdvancedRobot() {
     override fun run() {
         init()
 
-        val initialTurnRate = 10.0
-
+        components.add(RadarComponent(this))
         components.add(MovementComponent(this))
 
-        while (true) {
-            if (!botFound) {
-                turnGunRight(initialTurnRate)
-            } else {
-                turnGunRight(-initialTurnRate)
-            }
-        }
+        turnRadarRightRadians(Double.POSITIVE_INFINITY)
+        do {
+            scan()
+            execute()
+        } while (true)
     }
 
     override fun onScannedRobot(event: ScannedRobotEvent?) {
@@ -53,8 +53,6 @@ class TerasBot : AdvancedRobot() {
         botFound = true
 
         fire(1.0)
-
-        setTurnGunRight((radarHeading - event.bearing) / event.distance)
     }
 
     fun onEnemyBulletFired(event: EnemyFiredBulletEvent?) {
