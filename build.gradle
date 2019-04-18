@@ -61,7 +61,11 @@ tasks.register('start') {
 
     doLast {
         exec {
-            commandLine 'sh', "${robocodeDir}/robocode.sh", '-battle', "${rootDir}/battles/nomovement.battle"
+            commandLine 'java',
+                    "-Xmx512M",
+                    "-DWORKINGDIRECTORY=${robocodeDir}",
+                    "-cp", "${robocodeDir}/libs/robocode.jar", "robocode.Robocode",
+                    '-battle', "${rootDir}/battles/nomovement.battle"
         }
     }
 }
