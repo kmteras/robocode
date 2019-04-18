@@ -18,7 +18,7 @@ plugins {
 }
 
 sourceSets {
-    main.kotlin.srcDirs += 'src/main'
+    main.kotlin.srcDirs += 'src/main/kotlin'
 }
 
 idea {
@@ -32,18 +32,25 @@ repositories {
 }
 
 dependencies {
-    compile group: 'net.sf.robocode', name: 'robocode.api', version: '1.9.2.1'
-    runtime fileTree(include: ['*.jar'], dir: "${robocodeDir}/libs")
-    implementation "org.jetbrains.kotlin:kotlin-stdlib"
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
+    compile "org.jetbrains.kotlin:kotlin-stdlib"
+    compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
+    implementation fileTree(include: ['*.jar'], dir: "${robocodeDir}/libs")
+}
+
+jar {
+    manifest {
+        attributes "robots": "as.ter.TerasBot"
+    }
+
+    from {
+        configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }
+    }
 }
 
 task install {
     doLast {
-        def packagePath = 'as/ter'
-
-        def fromPath = "${rootDir}/build/classes/kotlin/main/${packagePath}"
-        def intoPath = "${robocodeDir}/robots/${packagePath}"
+        def fromPath = "${rootDir}/build/libs/terasbot-robocode.jar"
+        def intoPath = "${robocodeDir}/robots/"
 
         copy {
             from fromPath
@@ -63,6 +70,7 @@ tasks.register('start') {
         exec {
             commandLine 'java',
                     "-Xmx512M",
+                    "-Ddebug=true",
                     "-DWORKINGDIRECTORY=${robocodeDir}",
                     "-cp", "${robocodeDir}/libs/robocode.jar", "robocode.Robocode",
                     '-battle', "${rootDir}/battles/nomovement.battle"
@@ -70,5 +78,5 @@ tasks.register('start') {
     }
 }
 
-tasks.install.dependsOn build
+tasks.install.dependsOn jar
 tasks.start.dependsOn install
