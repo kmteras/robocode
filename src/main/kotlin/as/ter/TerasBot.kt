@@ -6,6 +6,7 @@ import `as`.ter.components.RadarComponent
 import `as`.ter.events.EnemyFiredBulletEvent
 import robocode.*
 import java.awt.Color
+import java.awt.Graphics2D
 
 class TerasBot : AdvancedRobot() {
     private fun init() {
@@ -20,11 +21,16 @@ class TerasBot : AdvancedRobot() {
         isAdjustRadarForGunTurn = true
     }
 
-    private var botFound = false
-    private var botDissapeared = true
-    private val foundTurnTate = 1.0
-
     private var components = ArrayList<BaseComponent>()
+    var lastEnergy: Double = 0.0
+    var lastVelocity: Double = 0.0
+    var lastBearing: Double = 0.0
+    var lastHeading: Double = 0.0
+    var lastDistance: Double = 0.0
+
+    var energyDelta: Double = 0.0
+
+    var lastRobotHeading: Double = 0.0
 
     override fun run() {
         init()
@@ -50,9 +56,14 @@ class TerasBot : AdvancedRobot() {
             it.onScannedRobot(event)
         }
 
-        botFound = true
+        lastEnergy = event.energy
+        lastVelocity = event.velocity
+        lastBearing = event.bearingRadians
+        lastHeading = event.headingRadians
+        lastDistance = event.distance
 
-        fire(1.0)
+        lastRobotHeading = headingRadians
+        energyDelta = 0.0
     }
 
     fun onEnemyBulletFired(event: EnemyFiredBulletEvent?) {
@@ -68,6 +79,17 @@ class TerasBot : AdvancedRobot() {
 
         components.forEach {
             it.onBulletHit(event)
+        }
+    }
+
+    override fun onHitByBullet(event: HitByBulletEvent?) {
+        super.onHitByBullet(event)
+        if (event == null) {
+            return
+        }
+
+        components.forEach {
+            it.onHitByBullet(event)
         }
     }
 
@@ -93,5 +115,17 @@ class TerasBot : AdvancedRobot() {
 
     override fun onStatus(e: StatusEvent?) {
         super.onStatus(e)
+    }
+
+    override fun onPaint(g: Graphics2D?) {
+        super.onPaint(g)
+
+        if (g == null) {
+            return
+        }
+
+        components.forEach {
+            it.onPaint(g)
+        }
     }
 }

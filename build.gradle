@@ -72,7 +72,7 @@ tasks.register('start') {
                     "-Ddebug=true",
                     "-DWORKINGDIRECTORY=${robocodeDir}",
                     "-cp", "${robocodeDir}/libs/robocode.jar", "robocode.Robocode",
-                    '-battle', "${rootDir}/battles/nomovement.battle"
+                    '-battle', "${rootDir}/battles/nomovementshoot.battle"
         }
     }
 }
