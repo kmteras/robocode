@@ -69,9 +69,14 @@ open class MovementComponent(robot: TerasBot) : BaseComponent(robot) {
 
         g.color = Color(255, 0, 0, 200)
         for (w: Wave in waves) {
-            val currentSize = w.currentSize(robot.time)
+            val currentSize = w.currentSize(robot.time) * 2
             g.drawArc((w.x - currentSize / 2).toInt(), (w.y - currentSize / 2).toInt(), currentSize.toInt(), currentSize.toInt(), 0, 360)
         }
+
+        val dw = dangerWave()
+        val dangerWaveSize = dw.currentSize(robot.time) * 2
+        g.color = Color(255, 255, 0, 200)
+        g.drawArc((dw.x - dangerWaveSize / 2).toInt(), (dw.y - dangerWaveSize / 2).toInt(), dangerWaveSize.toInt(), dangerWaveSize.toInt(), 0, 360)
     }
 
     private fun analyzeWave(w: Wave, x: Double, y: Double) {
@@ -83,12 +88,38 @@ open class MovementComponent(robot: TerasBot) : BaseComponent(robot) {
     private fun removePassedWaves() {
         var i = 0
         while (i < waves.size) {
-            if (waves[i].distance(robot.x, robot.y, robot.time)
-                    > Util.positionsDistance(robot.x, robot.y, waves[i].x, waves[i].y) + 50) {
+            if (waveHitOrPassed(waves[i])) {
+                println("Dodged ${waves[i]}")
                 waves.removeAt(i)
                 i--
             }
             i++
         }
+    }
+
+    private fun waveHitOrPassed(w: Wave, time: Long = robot.time): Boolean {
+        return w.distance(robot.x, robot.y, time) < -50
+    }
+
+    private fun calculatePosition() {
+
+    }
+
+    private fun wallSmoothing() {
+
+    }
+
+    private fun dangerWave(): Wave {
+        var future = 0
+
+        while (future < 300) {
+            waves.forEach {
+                if (waveHitOrPassed(it, robot.time + future)) {
+                    return it
+                }
+            }
+            future++
+        }
+        return waves[0]
     }
 }
