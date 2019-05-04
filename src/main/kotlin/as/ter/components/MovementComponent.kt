@@ -12,6 +12,7 @@ import java.awt.Graphics2D
 
 open class MovementComponent(robot: TerasBot) : BaseComponent(robot) {
     var waves = ArrayList<Wave>()
+    var enemyShootAngles = ArrayList<Double>()
 
     override fun onHitByBullet(event: HitByBulletEvent) {
         robot.energyDelta += event.power
@@ -30,8 +31,7 @@ open class MovementComponent(robot: TerasBot) : BaseComponent(robot) {
                 }
             }
 
-
-            // TODO: compare current and shot heading and add to history
+            analyzeWave(waves[closestWaveIndex], robot.x, robot.y)
             waves.removeAt(closestWaveIndex)
         }
     }
@@ -45,16 +45,18 @@ open class MovementComponent(robot: TerasBot) : BaseComponent(robot) {
         super.onScannedRobot(event)
 
         val currentEnergy = event.energy - robot.energyDelta
+        val energyDelta = robot.lastEnergy - currentEnergy
 
-        if (robot.lastEnergy - currentEnergy > 0) {
-            val esimatedVelocity = Util.bulletVelocity(robot.lastEnergy - event.energy)
+        if (energyDelta in 0.1..3.0) {
+            val estimatedVelocity = Util.bulletVelocity(energyDelta)
             val estimatedPosition = Util.positionByBearing(robot.x, robot.y, robot.lastRobotHeading + robot.lastBearing, robot.lastDistance)
-            val wave = Wave(estimatedPosition.first, estimatedPosition.second, esimatedVelocity, robot.time)
-            println(robot.lastEnergy - event.energy)
+            val wave = Wave(estimatedPosition.first, estimatedPosition.second, estimatedVelocity, event.time, robot.lastRobotX, robot.lastRobotY)
             robot.onEnemyBulletFired(EnemyFiredBulletEvent())
             waves.add(wave)
-            println("Fired")
+            println("Fired with " + (robot.lastEnergy - event.energy))
         }
+
+        removePassedWaves()
     }
 
     override fun onPaint(g: Graphics2D) {
@@ -69,6 +71,24 @@ open class MovementComponent(robot: TerasBot) : BaseComponent(robot) {
         for (w: Wave in waves) {
             val currentSize = w.currentSize(robot.time)
             g.drawArc((w.x - currentSize / 2).toInt(), (w.y - currentSize / 2).toInt(), currentSize.toInt(), currentSize.toInt(), 0, 360)
+        }
+    }
+
+    private fun analyzeWave(w: Wave, x: Double, y: Double) {
+        val angleDifference = Util.angleDifference(w.robotX, w.robotY, x, y)
+        println(angleDifference)
+        enemyShootAngles.add(angleDifference)
+    }
+
+    private fun removePassedWaves() {
+        var i = 0
+        while (i < waves.size) {
+            if (waves[i].distance(robot.x, robot.y, robot.time)
+                    > Util.positionsDistance(robot.x, robot.y, waves[i].x, waves[i].y) + 50) {
+                waves.removeAt(i)
+                i--
+            }
+            i++
         }
     }
 }

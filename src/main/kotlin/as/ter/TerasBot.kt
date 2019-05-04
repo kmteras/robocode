@@ -31,6 +31,8 @@ class TerasBot : AdvancedRobot() {
     var energyDelta: Double = 0.0
 
     var lastRobotHeading: Double = 0.0
+    var lastRobotX: Double = 0.0
+    var lastRobotY: Double = 0.0
 
     override fun run() {
         init()
@@ -63,6 +65,8 @@ class TerasBot : AdvancedRobot() {
         lastDistance = event.distance
 
         lastRobotHeading = headingRadians
+        lastRobotX = x
+        lastRobotY = y
         energyDelta = 0.0
     }
 

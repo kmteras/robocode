@@ -1,6 +1,8 @@
 package `as`.ter
 
-class Wave(val x: Double, val y: Double, val velocity: Double, val startTick: Long) {
+class Wave(val x: Double, val y: Double,
+           val velocity: Double, val startTick: Long,
+           val robotX: Double, val robotY: Double) {
     fun currentSize(tick: Long): Double {
         return 2 * velocity * (tick - (startTick - 1))
     }

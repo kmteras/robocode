@@ -11,7 +11,15 @@ class Util {
         }
 
         fun positionsDistance(x1: Double, y1: Double, x2: Double, y2: Double): Double {
-            return Math.sqrt(Math.pow(x1 - x2, 2.0) + Math.pow(y1 - y2, 2.0))
+            return vectorLength(x1 - x2, y1 - y2)
+        }
+
+        fun angleDifference(x1: Double, y1: Double, x2: Double, y2: Double): Double {
+            return Math.atan2(x1 - x2, y1 - y2)
+        }
+
+        fun vectorLength(vx: Double, vy: Double): Double {
+            return Math.sqrt(Math.pow(vx, 2.0) + Math.pow(vy, 2.0))
         }
     }
 }
