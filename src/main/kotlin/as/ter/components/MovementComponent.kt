@@ -4,6 +4,7 @@ import `as`.ter.TerasBot
 import `as`.ter.Util
 import `as`.ter.Wave
 import `as`.ter.events.EnemyFiredBulletEvent
+import robocode.BulletHitBulletEvent
 import robocode.BulletHitEvent
 import robocode.HitByBulletEvent
 import robocode.ScannedRobotEvent
@@ -14,11 +15,12 @@ import java.awt.geom.Rectangle2D
 
 open class MovementComponent(robot: TerasBot) : BaseComponent(robot) {
     private var waves = ArrayList<Wave>()
-    private val wallSpace = 50.0
+    private val wallSpace = 32.0
 
     private val gf = ArrayList<Double>(49)
     private val directionHistory = ArrayList<Int>()
     private val directionAngleHistory = ArrayList<Double>()
+    private var normalAngle_global = 0.0
 
     init {
         for (i in 0 until 49) {
@@ -28,24 +30,15 @@ open class MovementComponent(robot: TerasBot) : BaseComponent(robot) {
 
     override fun onHitByBullet(event: HitByBulletEvent) {
         robot.energyDelta += event.power
-        println("Got hit: " + event.power)
+        println("Got hit: ${event.power}")
 
-        if (waves.size > 0) {
-            var closestWaveIndex = 0
-            var closestWaveDistance = Double.MAX_VALUE
+        removeClosedWave(event.bullet.x, event.bullet.y)
+    }
 
-            waves.forEachIndexed { i, it ->
-                val distance = it.distance(event.bullet.x, event.bullet.y, robot.time)
+    override fun onBulletHitBullet(event: BulletHitBulletEvent) {
+        println("Bullet hit bullet: ${event.bullet.power} ${event.hitBullet.power}")
 
-                if (distance < closestWaveDistance) {
-                    closestWaveDistance = distance
-                    closestWaveIndex = i
-                }
-            }
-
-            analyzeWave(waves[closestWaveIndex], robot.x, robot.y)
-            waves.removeAt(closestWaveIndex)
-        }
+        removeClosedWave(event.bullet.x, event.bullet.y)
     }
 
     override fun onBulletHit(event: BulletHitEvent) {
@@ -94,7 +87,7 @@ open class MovementComponent(robot: TerasBot) : BaseComponent(robot) {
     override fun onPaint(g: Graphics2D) {
         super.onPaint(g)
         g.color = Color(0, 150, 100, 100)
-        val position = Util.positionByBearing(robot.x, robot.y, robot.lastRobotHeading + robot.lastBearing, robot.lastDistance)
+        val position = Util.positionByBearing(robot.lastRobotX, robot.lastRobotY, robot.lastRobotHeading + robot.lastBearing, robot.lastDistance)
         g.fillArc(position.first.toInt() - 20, position.second.toInt() - 20, 40, 40, 0, 360)
         g.fillArc(robot.x.toInt() - 20, robot.y.toInt() - 20, 40, 40, 0, 360)
         g.drawLine(robot.x.toInt(), robot.y.toInt(), position.first.toInt(), position.second.toInt())
@@ -110,6 +103,25 @@ open class MovementComponent(robot: TerasBot) : BaseComponent(robot) {
             val dangerWaveSize = dw.currentSize(robot.time) * 2
             g.color = Color(255, 255, 0, 200)
             g.drawArc((dw.x - dangerWaveSize / 2).toInt(), (dw.y - dangerWaveSize / 2).toInt(), dangerWaveSize.toInt(), dangerWaveSize.toInt(), 0, 360)
+        }
+    }
+
+    private fun removeClosedWave(x: Double, y: Double) {
+        if (waves.size > 0) {
+            var closestWaveIndex = 0
+            var closestWaveDistance = Double.MAX_VALUE
+
+            waves.forEachIndexed { i, it ->
+                val distance = it.distance(x, y, robot.time)
+
+                if (distance < closestWaveDistance) {
+                    closestWaveDistance = distance
+                    closestWaveIndex = i
+                }
+            }
+
+            analyzeWave(waves[closestWaveIndex], robot.x, robot.y)
+            waves.removeAt(closestWaveIndex)
         }
     }
 
@@ -154,14 +166,13 @@ open class MovementComponent(robot: TerasBot) : BaseComponent(robot) {
         val dr = danger(dw, 1)
 
         var angle = Util.angleDifference(dw.x, dw.y, robot.x, robot.y)
-        var direction = 1
+        val direction: Int
 
         if (dl > dr) {
             val smoothing = wallSmoothing(1, angle + Math.PI / 2, robot.x, robot.y)
             angle = smoothing.first
             direction = smoothing.second
-        }
-        else {
+        } else {
             val smoothing = wallSmoothing(-1, angle - Math.PI / 2, robot.x, robot.y)
             angle = smoothing.first
             direction = smoothing.second
@@ -169,21 +180,20 @@ open class MovementComponent(robot: TerasBot) : BaseComponent(robot) {
 
         val normalAngle = Utils.normalRelativeAngle(angle - robot.headingRadians)
 
-        if (direction > 1) {
+        normalAngle_global = normalAngle
+
+        if (direction > 0) {
             if (normalAngle < 0) {
                 robot.setTurnRightRadians(Math.PI + normalAngle)
-            }
-            else {
-                robot.setTurnRightRadians(Math.PI - normalAngle)
+            } else {
+                robot.setTurnLeftRadians(Math.PI - normalAngle)
             }
 
             robot.setAhead(100.0)
-        }
-        else {
+        } else {
             if (normalAngle < 0) {
-                robot.setTurnRightRadians(-1 * normalAngle)
-            }
-            else {
+                robot.setTurnLeftRadians(-1 * normalAngle)
+            } else {
                 robot.setTurnRightRadians(normalAngle)
             }
 
@@ -232,8 +242,8 @@ open class MovementComponent(robot: TerasBot) : BaseComponent(robot) {
         var future = 0
         var hit = false
 
-        while (!hit && future < 300) {
-            val smoothing = wallSmoothing(direction, Util.angleDifference(w.x, w.y, posX, posY) + (direction * Math.PI / 2), posX, posY)
+        while (!hit && future < 100) {
+            val smoothing = wallSmoothing(direction, Util.angleDifference(w.x, w.y, posX, posY) + (direction * Math.PI / 2.2), posX, posY)
             moveAngle = smoothing.first - moveHeading
             moveDirection = smoothing.second
 
