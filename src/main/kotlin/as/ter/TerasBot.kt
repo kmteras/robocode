@@ -1,6 +1,7 @@
 package `as`.ter
 
 import `as`.ter.components.BaseComponent
+import `as`.ter.components.GunComponent
 import `as`.ter.components.MovementComponent
 import `as`.ter.components.RadarComponent
 import `as`.ter.events.EnemyFiredBulletEvent
@@ -39,6 +40,7 @@ class TerasBot : AdvancedRobot() {
 
         components.add(RadarComponent(this))
         components.add(MovementComponent(this))
+        components.add(GunComponent(this))
 
         turnRadarRightRadians(Double.POSITIVE_INFINITY)
         do {

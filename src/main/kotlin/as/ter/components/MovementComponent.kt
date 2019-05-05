@@ -14,7 +14,7 @@ import java.awt.geom.Rectangle2D
 
 open class MovementComponent(robot: TerasBot) : BaseComponent(robot) {
     private var waves = ArrayList<Wave>()
-    private val wallSpace = 36.0
+    private val wallSpace = 50.0
 
     private val gf = ArrayList<Double>(49)
     private val directionHistory = ArrayList<Int>()
