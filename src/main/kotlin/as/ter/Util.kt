@@ -21,5 +21,9 @@ class Util {
         fun vectorLength(vx: Double, vy: Double): Double {
             return Math.sqrt(Math.pow(vx, 2.0) + Math.pow(vy, 2.0))
         }
+
+        fun maxEscapeAngle(velocity: Double): Double {
+            return Math.asin(8.0 / velocity)
+        }
     }
 }

@@ -7,12 +7,24 @@ import `as`.ter.events.EnemyFiredBulletEvent
 import robocode.BulletHitEvent
 import robocode.HitByBulletEvent
 import robocode.ScannedRobotEvent
+import robocode.util.Utils
 import java.awt.Color
 import java.awt.Graphics2D
+import java.awt.geom.Rectangle2D
 
 open class MovementComponent(robot: TerasBot) : BaseComponent(robot) {
-    var waves = ArrayList<Wave>()
-    var enemyShootAngles = ArrayList<Double>()
+    private var waves = ArrayList<Wave>()
+    private val wallSpace = 36.0
+
+    private val gf = ArrayList<Double>(49)
+    private val directionHistory = ArrayList<Int>()
+    private val directionAngleHistory = ArrayList<Double>()
+
+    init {
+        for (i in 0 until 49) {
+            gf.add(0.0)
+        }
+    }
 
     override fun onHitByBullet(event: HitByBulletEvent) {
         robot.energyDelta += event.power
@@ -47,16 +59,36 @@ open class MovementComponent(robot: TerasBot) : BaseComponent(robot) {
         val currentEnergy = event.energy - robot.energyDelta
         val energyDelta = robot.lastEnergy - currentEnergy
 
-        if (energyDelta in 0.1..3.0) {
+        val vel = robot.velocity * Math.sin(event.bearingRadians)
+        val bearing = event.bearingRadians + robot.headingRadians
+
+        if (vel >= 0) {
+            directionHistory.add(0, 1)
+        } else {
+            directionHistory.add(0, -1)
+        }
+
+        directionAngleHistory.add(0, bearing + Math.PI)
+
+        if (energyDelta in 0.1..3.0 && directionHistory.size > 2) {
             val estimatedVelocity = Util.bulletVelocity(energyDelta)
             val estimatedPosition = Util.positionByBearing(robot.x, robot.y, robot.lastRobotHeading + robot.lastBearing, robot.lastDistance)
-            val wave = Wave(estimatedPosition.first, estimatedPosition.second, estimatedVelocity, event.time, robot.lastRobotX, robot.lastRobotY)
+            val wave = Wave(
+                    estimatedPosition.first,
+                    estimatedPosition.second,
+                    estimatedVelocity,
+                    event.time,
+                    robot.lastRobotX,
+                    robot.lastRobotY,
+                    directionHistory[2],
+                    directionAngleHistory[2])
             robot.onEnemyBulletFired(EnemyFiredBulletEvent())
             waves.add(wave)
             println("Fired with " + (robot.lastEnergy - event.energy))
         }
 
         removePassedWaves()
+        surf()
     }
 
     override fun onPaint(g: Graphics2D) {
@@ -74,15 +106,28 @@ open class MovementComponent(robot: TerasBot) : BaseComponent(robot) {
         }
 
         val dw = dangerWave()
-        val dangerWaveSize = dw.currentSize(robot.time) * 2
-        g.color = Color(255, 255, 0, 200)
-        g.drawArc((dw.x - dangerWaveSize / 2).toInt(), (dw.y - dangerWaveSize / 2).toInt(), dangerWaveSize.toInt(), dangerWaveSize.toInt(), 0, 360)
+        if (dw != null) {
+            val dangerWaveSize = dw.currentSize(robot.time) * 2
+            g.color = Color(255, 255, 0, 200)
+            g.drawArc((dw.x - dangerWaveSize / 2).toInt(), (dw.y - dangerWaveSize / 2).toInt(), dangerWaveSize.toInt(), dangerWaveSize.toInt(), 0, 360)
+        }
     }
 
     private fun analyzeWave(w: Wave, x: Double, y: Double) {
-        val angleDifference = Util.angleDifference(w.robotX, w.robotY, x, y)
-        println(angleDifference)
-        enemyShootAngles.add(angleDifference)
+        val index = getGFIndex(w, x, y)
+
+        for (i in 0 until gf.size) {
+            gf[i] += 1.0 / (Math.pow((index - i).toDouble(), 2.0) + 1)
+        }
+    }
+
+    private fun getGFIndex(w: Wave, x: Double, y: Double): Int {
+        val dif = Util.angleDifference(w.x, w.y, x, y) - w.robotAngle
+        val factor = Utils.normalRelativeAngle(dif) / Util.maxEscapeAngle(w.velocity) * w.robotDirection
+
+        val index = factor * (gf.size - 1) / 2 + (gf.size - 1) / 2
+
+        return Math.min(0, Math.max(index.toInt(), gf.size - 1))
     }
 
     private fun removePassedWaves() {
@@ -97,19 +142,124 @@ open class MovementComponent(robot: TerasBot) : BaseComponent(robot) {
         }
     }
 
-    private fun waveHitOrPassed(w: Wave, time: Long = robot.time): Boolean {
-        return w.distance(robot.x, robot.y, time) < -50
+    private fun danger(w: Wave, direction: Int): Double {
+        val pos = calculatePosition(w, direction)
+        return gf[getGFIndex(w, pos.first, pos.second)]
     }
 
-    private fun calculatePosition() {
+    private fun surf() {
+        val dw = dangerWave() ?: return
 
+        val dl = danger(dw, -1)
+        val dr = danger(dw, 1)
+
+        var angle = Util.angleDifference(dw.x, dw.y, robot.x, robot.y)
+        var direction = 1
+
+        if (dl > dr) {
+            val smoothing = wallSmoothing(1, angle + Math.PI / 2, robot.x, robot.y)
+            angle = smoothing.first
+            direction = smoothing.second
+        }
+        else {
+            val smoothing = wallSmoothing(-1, angle - Math.PI / 2, robot.x, robot.y)
+            angle = smoothing.first
+            direction = smoothing.second
+        }
+
+        val normalAngle = Utils.normalRelativeAngle(angle - robot.headingRadians)
+
+        if (direction > 1) {
+            if (normalAngle < 0) {
+                robot.setTurnRightRadians(Math.PI + normalAngle)
+            }
+            else {
+                robot.setTurnRightRadians(Math.PI - normalAngle)
+            }
+
+            robot.setAhead(100.0)
+        }
+        else {
+            if (normalAngle < 0) {
+                robot.setTurnRightRadians(-1 * normalAngle)
+            }
+            else {
+                robot.setTurnRightRadians(normalAngle)
+            }
+
+            robot.setBack(100.0)
+        }
     }
 
-    private fun wallSmoothing() {
-
+    private fun waveHitOrPassed(w: Wave, time: Long = robot.time, x: Double = robot.x, y: Double = robot.y): Boolean {
+        return w.distance(x, y, time) < -50
     }
 
-    private fun dangerWave(): Wave {
+    private fun wallSmoothing(direction: Int, absoluteBearing: Double, x: Double, y: Double): Pair<Double, Int> {
+        var moveDirection = absoluteBearing - Math.PI / 2 * direction
+
+        val fieldRect = Rectangle2D.Double(wallSpace, wallSpace, robot.battleFieldWidth - wallSpace, robot.battleFieldHeight - wallSpace)
+
+        var iterations = 0
+
+        while (!fieldRect.contains(x + Math.sin(moveDirection) * 120, y + Math.cos(moveDirection) * 120) && iterations < 50) {
+            moveDirection += direction * 0.1
+            iterations++
+        }
+
+        var turn = Utils.normalRelativeAngle(moveDirection - robot.headingRadians)
+        var forward = -1
+
+        if (Math.abs(turn) > Math.PI / 2) {
+            turn = Utils.normalRelativeAngle(turn + Math.PI)
+        } else {
+            forward = 1
+        }
+
+        return Pair(turn, forward)
+    }
+
+    private fun calculatePosition(w: Wave, direction: Int): Pair<Double, Double> {
+        var posX = robot.x
+        var posY = robot.y
+
+        var moveVelocity = robot.velocity
+        var moveHeading = robot.headingRadians
+        var moveAngle: Double
+        var moveDirection: Int
+        var maxTurning: Double
+
+        var future = 0
+        var hit = false
+
+        while (!hit && future < 300) {
+            val smoothing = wallSmoothing(direction, Util.angleDifference(w.x, w.y, posX, posY) + (direction * Math.PI / 2), posX, posY)
+            moveAngle = smoothing.first - moveHeading
+            moveDirection = smoothing.second
+
+            maxTurning = Math.PI / 720.0 * (40.0 - 3.0 * Math.abs(moveVelocity))
+            moveHeading = Utils.normalRelativeAngle(moveHeading + Math.min(-maxTurning, Math.max(moveAngle, maxTurning)))
+
+            var moveVelocityDirection = moveDirection
+
+            if (moveVelocity < 0) {
+                moveVelocityDirection = 2 * moveDirection
+            }
+
+            moveVelocity += moveVelocity * moveVelocityDirection
+
+            posX += Math.sin(moveHeading) * moveVelocity
+            posY += Math.cos(moveHeading) * moveVelocity
+
+            future++
+
+            hit = waveHitOrPassed(w, robot.time + future, posX, posY)
+        }
+
+        return Pair(posX, posY)
+    }
+
+    private fun dangerWave(): Wave? {
         var future = 0
 
         while (future < 300) {
@@ -120,6 +270,11 @@ open class MovementComponent(robot: TerasBot) : BaseComponent(robot) {
             }
             future++
         }
-        return waves[0]
+
+        return if (waves.size > 0) {
+            waves[0]
+        } else {
+            null
+        }
     }
 }
